@@ -23,17 +23,30 @@ if st.button("MULAI GENERATE KONTEN ✨"):
             st.subheader("Naskah AI:")
             st.write(naskah)
 
-            # 2. Generate Suara
+            # 2. Generate Suara (VERSI INDONESIA STABIL)
             st.info("Mengisi suara... 🎙️")
-            voice_url = "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM"
-            headers = {"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"}
-            data = {"text": naskah, "model_id": "eleven_multilingual_v2"}
+            # Kita ganti ke suara 'Adam' yang lebih stabil (ID: pNInz6obpgnuMvscWqt5)
+            voice_url = "https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgnuMvscWqt5"
+            headers = {
+                "xi-api-key": ELEVENLABS_API_KEY,
+                "Content-Type": "application/json"
+            }
+            data = {
+                "text": naskah,
+                "model_id": "eleven_multilingual_v2", # WAJIB V2 untuk Bahasa Indonesia
+                "voice_settings": {
+                    "stability": 0.5,
+                    "similarity_boost": 0.75
+                }
+            }
             
             audio_req = requests.post(voice_url, json=data, headers=headers)
             if audio_req.status_code == 200:
                 st.audio(audio_req.content, format='audio/mp3')
             else:
-                st.error("Gagal di ElevenLabs. Cek API Key atau Kuota gratis Anda.")
+                # Ini untuk melihat error apa yang dikirim ElevenLabs
+                st.error(f"Gagal di ElevenLabs. Kode Error: {audio_req.status_code}")
+                st.write(audio_req.text)
 
             # 3. Generate Gambar
             st.info("Membuat gambar... 🎨")
