@@ -4,73 +4,78 @@ import requests
 import asyncio
 import edge_tts
 
-# --- CONFIG ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-ELEVENLABS_API_KEY = st.secrets["ELEVENLABS_API_KEY"]
 
-st.set_page_config(page_title="AI Video Maker Pro", layout="wide")
+st.set_page_config(page_title="AI Video Studio Pro", layout="wide")
 
-# CSS untuk tampilan ala aplikasi mahal
+# UI Styling
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #ff4b4b; color: white; }
-    .content-box { padding: 20px; border-radius: 15px; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .reportview-container { background: #0e1117; }
+    .stTextArea textarea { font-size: 1.2rem !important; }
+    .css-1n76uvr { border-radius: 20px; border: 1px solid #333; padding: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🎬 AI Content Generator Pro")
-st.caption("Ubah ide jadi konten video siap upload (TikTok, Reels, Shorts)")
+st.title("💎 AI Video Studio: High-Quality Edition")
+st.write("Membuat aset video dengan kualitas estetik tinggi untuk TikTok/Reels.")
 
-# --- INPUT AREA ---
-with st.container():
-    col_a, col_b = st.columns([3, 1])
-    with col_a:
-        topic = st.text_input("Apa ide konten Anda?", placeholder="Contoh: 3 Alasan kenapa harus investasi emas")
-    with col_b:
-        style = st.selectbox("Gaya Gambar", ["Cinematic", "Anime", "3D Render", "Cyberpunk"])
+topic = st.text_input("Apa topik besar video Anda?", placeholder="Contoh: Gelapnya sisi lain dunia kerja")
 
-if st.button("MULAI GENERATE KONTEN ✨"):
+if st.button("PROSES KONTEN PREMIUM 🚀"):
     if topic:
         try:
-            # 1. GENERATE NASKAH (GPT-3.5)
-            with st.spinner("✍️ Menulis naskah viral..."):
-                prompt_naskah = f"Buatkan naskah video pendek viral tentang {topic}. Gunakan hook yang menarik di awal. Maksimal 60 kata. Bahasa Indonesia santai."
-                res = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt_naskah}])
+            # 1. GENERATE NASKAH DENGAN STRUKTUR VIRAL
+            with st.spinner("🧠 Meracik naskah dengan Hook, Story, dan CTA..."):
+                prompt_naskah = f"""
+                Buat naskah video pendek tentang {topic}. 
+                Bagi jadi 3 bagian:
+                1. HOOK: Kalimat mengejutkan untuk 3 detik pertama.
+                2. CONTENT: Inti pesan yang emosional/edukatif.
+                3. CTA: Ajakan follow yang halus.
+                Total maksimal 50 kata. Bahasa Indonesia gaul/estetik.
+                """
+                res = client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt_naskah}])
                 naskah = res.choices[0].message.content
 
-            # 2. GENERATE GAMBAR (DALL-E 3)
-            with st.spinner("🎨 Membuat visual berkualitas tinggi..."):
+            # 2. GENERATE GAMBAR SINEMATIK (DALL-E 3)
+            with st.spinner("📸 Memotret visual sinematik 4K..."):
+                # Kita minta DALL-E buat gambar yang sangat detail
                 img_res = client.images.generate(
                     model="dall-e-3",
-                    prompt=f"{style} style illustration of {topic}, high resolution, 9:16 aspect ratio feel",
-                    size="1024x1024"
+                    prompt=f"Cinematic wide shot, highly detailed, realistic, atmospheric lighting, professional photography for: {topic}. No text in image.",
+                    size="1024x1024",
+                    quality="hd"
                 )
                 img_url = img_res.data[0].url
 
-            # 3. GENERATE SUARA (Edge-TTS - Gratis & Cepat)
-            with st.spinner("🎙️ Mengisi suara narator..."):
-                voice_file = "voice.mp3"
-                communicate = edge_tts.Communicate(naskah, "id-ID-ArdiNeural")
+            # 3. GENERATE SUARA (Ardi Neural - Natural)
+            with st.spinner("🎙️ Rekaman suara narator..."):
+                voice_file = "pro_voice.mp3"
+                communicate = edge_tts.Communicate(naskah, "id-ID-ArdiNeural", rate="+5%")
                 asyncio.run(communicate.save(voice_file))
 
-            # --- DISPLAY HASIL (Layout Editor) ---
+            # --- DISPLAY HASIL ---
             st.divider()
-            col1, col2 = st.columns([1, 1])
-
+            
+            col1, col2 = st.columns([1, 1.2])
+            
             with col1:
-                st.markdown("### 🖼️ Visual & Audio")
-                st.image(img_url, use_column_width=True)
+                st.image(img_url, caption="Visual Asset (HD)", use_column_width=True)
                 with open(voice_file, "rb") as f:
                     st.audio(f.read(), format="audio/mp3")
-            
+                st.download_button("📥 Download Suara", open(voice_file, "rb"), "audio.mp3")
+
             with col2:
-                st.markdown("### 📝 Naskah Konten")
-                st.info(naskah)
-                st.success("✅ Konten siap digabungkan!")
-                st.write("💡 **Tips:** Gunakan aplikasi CapCut, masukkan gambar ini dan tambahkan audionya. Gunakan fitur 'Auto Captions' di CapCut untuk hasil video paling pro!")
+                st.subheader("📝 Script Storyboard")
+                st.markdown(f"> {naskah}")
+                
+                st.info("💡 **Cara Edit Biar Setara Pro:**\n"
+                        "1. Masukkan gambar ke CapCut.\n"
+                        "2. Tambahkan audio di atas.\n"
+                        "3. Gunakan 'Keyframe' pada gambar agar bergerak perlahan (Slow Zoom).\n"
+                        "4. Tambahkan 'Auto Captions' dengan font 'The Bold Font'.\n"
+                        "5. Tambahkan background music 'Sad Cinematic' atau 'Phonk' dengan volume 10%.")
 
         except Exception as e:
-            st.error(f"Terjadi kesalahan: {e}")
-    else:
-        st.warning("Masukkan ide dulu!")
+            st.error(f"Error: {e}")
