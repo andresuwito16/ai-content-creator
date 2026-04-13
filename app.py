@@ -1,99 +1,76 @@
 import streamlit as st
 from openai import OpenAI
 import requests
-import os
-import edge_tts
 import asyncio
-from moviepy.editor import ImageClip, AudioFileClip, TextClip, CompositeVideoClip
+import edge_tts
 
-# --- KONFIGURASI API ---
+# --- CONFIG ---
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+ELEVENLABS_API_KEY = st.secrets["ELEVENLABS_API_KEY"]
 
-st.set_page_config(page_title="AI Video Pro Creator", layout="wide")
-st.title("🎬 AI Video Pro Creator")
-st.markdown("Generate video viral dalam hitungan detik!")
+st.set_page_config(page_title="AI Video Maker Pro", layout="wide")
 
-# --- SIDEBAR FITUR ---
-with st.sidebar:
-    st.header("⚙️ Pengaturan Video")
-    voice_speed = st.slider("Kecepatan Suara", 0.8, 1.5, 1.0)
-    bg_music = st.checkbox("Tambah Musik Latar (Soft)", value=True)
-    video_size = st.selectbox("Ukuran Video", ["9:16 (TikTok/Reels)", "16:9 (YouTube)"])
+# CSS untuk tampilan ala aplikasi mahal
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #ff4b4b; color: white; }
+    .content-box { padding: 20px; border-radius: 15px; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- FUNGSI GENERATOR ---
-async def generate_voice(text, output_file):
-    communicate = edge_tts.Communicate(text, "id-ID-ArdiNeural", rate=f"{'+' if voice_speed>=1 else '-'}{int(abs(voice_speed-1)*100)}%")
-    await communicate.save(output_file)
+st.title("🎬 AI Content Generator Pro")
+st.caption("Ubah ide jadi konten video siap upload (TikTok, Reels, Shorts)")
 
-def create_video(image_path, audio_path, script_text, output_path):
-    # Load audio untuk durasi
-    audio = AudioFileClip(audio_path)
-    
-    # Buat clip gambar sesuai durasi audio
-    img_clip = ImageClip(image_path).set_duration(audio.duration)
-    
-    # Efek Zoom In sederhana (agar tidak kaku)
-    img_clip = img_clip.resize(lambda t: 1 + 0.02*t) 
+# --- INPUT AREA ---
+with st.container():
+    col_a, col_b = st.columns([3, 1])
+    with col_a:
+        topic = st.text_input("Apa ide konten Anda?", placeholder="Contoh: 3 Alasan kenapa harus investasi emas")
+    with col_b:
+        style = st.selectbox("Gaya Gambar", ["Cinematic", "Anime", "3D Render", "Cyberpunk"])
 
-    # Tambah Caption Otomatis (Teks di tengah)
-    txt_clip = TextClip(script_text, fontsize=40, color='white', font='Arial-Bold', 
-                        method='caption', size=(img_clip.w*0.8, None)).set_duration(audio.duration)
-    txt_clip = txt_clip.set_position(('center', 'center'))
-
-    # Gabungkan
-    video = CompositeVideoClip([img_clip, txt_clip])
-    video = video.set_audio(audio)
-    video.write_videofile(output_path, fps=24, codec="libx264")
-
-# --- MAIN APP ---
-topic = st.text_input("Apa ide konten Anda hari ini?", placeholder="Contoh: 3 Tips hidup bahagia tanpa hutang")
-
-if st.button("PROSES VIDEO SEKARANG 🚀"):
+if st.button("MULAI GENERATE KONTEN ✨"):
     if topic:
         try:
-            # 1. GENERATE NASKAH
-            with st.spinner("🤖 AI sedang menulis naskah viral..."):
-                res = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": f"Buatkan naskah konten edukasi singkat tentang {topic}. Maksimal 30 kata, bahasa Indonesia yang sangat persuasif."}]
-                )
+            # 1. GENERATE NASKAH (GPT-3.5)
+            with st.spinner("✍️ Menulis naskah viral..."):
+                prompt_naskah = f"Buatkan naskah video pendek viral tentang {topic}. Gunakan hook yang menarik di awal. Maksimal 60 kata. Bahasa Indonesia santai."
+                res = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt_naskah}])
                 naskah = res.choices[0].message.content
-                st.success("Naskah Berhasil Dibuat!")
-                st.write(f"💬 *{naskah}*")
 
             # 2. GENERATE GAMBAR (DALL-E 3)
-            with st.spinner("🎨 Membuat visual sinematik..."):
+            with st.spinner("🎨 Membuat visual berkualitas tinggi..."):
                 img_res = client.images.generate(
                     model="dall-e-3",
-                    prompt=f"Cinematic realistic high quality, {topic}, colorful, masterpiece",
+                    prompt=f"{style} style illustration of {topic}, high resolution, 9:16 aspect ratio feel",
                     size="1024x1024"
                 )
                 img_url = img_res.data[0].url
-                img_data = requests.get(img_url).content
-                with open("temp_image.png", "wb") as f:
-                    f.write(img_data)
 
-            # 3. GENERATE VOICE OVER (Gratis & Natural)
+            # 3. GENERATE SUARA (Edge-TTS - Gratis & Cepat)
             with st.spinner("🎙️ Mengisi suara narator..."):
-                asyncio.run(generate_voice(naskah, "temp_audio.mp3"))
+                voice_file = "voice.mp3"
+                communicate = edge_tts.Communicate(naskah, "id-ID-ArdiNeural")
+                asyncio.run(communicate.save(voice_file))
 
-            # 4. RENDERING VIDEO
-            with st.spinner("🎬 Menggabungkan semua elemen jadi video..."):
-                create_video("temp_image.png", "temp_audio.mp3", naskah, "final_video.mp4")
-            
-            # TAMPILKAN HASIL
+            # --- DISPLAY HASIL (Layout Editor) ---
             st.divider()
-            st.balloons()
-            st.subheader("✅ Video Anda Siap!")
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns([1, 1])
+
             with col1:
-                st.video("final_video.mp4")
+                st.markdown("### 🖼️ Visual & Audio")
+                st.image(img_url, use_column_width=True)
+                with open(voice_file, "rb") as f:
+                    st.audio(f.read(), format="audio/mp3")
+            
             with col2:
-                st.image("temp_image.png", caption="Thumbnail Generasi AI")
-                with open("final_video.mp4", "rb") as file:
-                    st.download_button("📥 DOWNLOAD VIDEO SEKARANG", file, "video_konten_ai.mp4", "video/mp4")
+                st.markdown("### 📝 Naskah Konten")
+                st.info(naskah)
+                st.success("✅ Konten siap digabungkan!")
+                st.write("💡 **Tips:** Gunakan aplikasi CapCut, masukkan gambar ini dan tambahkan audionya. Gunakan fitur 'Auto Captions' di CapCut untuk hasil video paling pro!")
 
         except Exception as e:
-            st.error(f"Aduh, ada kendala teknik: {e}")
+            st.error(f"Terjadi kesalahan: {e}")
     else:
-        st.warning("Silakan isi ide kontennya dulu ya!")
+        st.warning("Masukkan ide dulu!")
