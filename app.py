@@ -7,96 +7,103 @@ import json
 # 1. SETUP API
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_page_config(page_title="AI Storyboard Studio", layout="wide")
+st.set_page_config(page_title="Pro Content Studio", layout="wide")
 
-# Styling
+# CSS untuk memperbaiki tampilan gambar agar sesuai Rasio
 st.markdown("""
     <style>
-    .scene-card { background: #1e2128; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid #00ffcc; }
-    .stButton>button { width: 100%; background: #00ffcc; color: black; font-weight: bold; }
+    .scene-container { background: #111; padding: 30px; border-radius: 20px; margin-bottom: 50px; border: 1px solid #333; }
+    .narration-text { font-size: 1.1rem; line-height: 1.8; color: #e0e0e0; background: #222; padding: 20px; border-radius: 10px; }
+    img { border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: cover; }
+    .stButton>button { background: #ff4b4b; color: white; height: 3em; font-size: 1.2rem; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🎬 AI Storyboard Creator")
-st.write("Hasil per adegan untuk mempermudah editing manual di CapCut/Premiere.")
+st.title("🎥 Pro AI Storyboard Studio")
+st.write("Generasi konten mendalam dengan narasi panjang dan visual presisi.")
 
-# 2. INPUT & SETTING
+# 2. KONFIGURASI
 with st.sidebar:
-    st.header("⚙️ Konfigurasi")
-    ratio = st.radio("Rasio Gambar:", ["9:16 (TikTok/Reels)", "16:9 (YouTube/Landscape)"])
-    num_scenes = st.slider("Jumlah Adegan:", 3, 5, 3)
-    tone = st.selectbox("Tone Suara:", ["Inspiratif", "Misterius", "Enerjik"])
+    st.header("🎬 Video Settings")
+    ratio = st.selectbox("Pilih Rasio Video:", ["9:16 (TikTok/Reels/Shorts)", "16:9 (YouTube/Landscape)"])
+    num_scenes = st.slider("Jumlah Adegan:", 2, 4, 3)
+    voice_speed = st.slider("Kecepatan Suara:", 0.8, 1.2, 1.0)
 
-topic = st.text_area("Apa ide konten Anda?", placeholder="Contoh: 3 Fakta unik tentang laut terdalam", height=100)
+topic = st.text_area("Topik/Ide Mendalam:", placeholder="Contoh: Mengapa kesehatan mental lebih penting dari sekadar kesuksesan finansial?", height=120)
 
-# Mapping Rasio untuk DALL-E
+# Mapping Resolusi DALL-E 3
 size_map = {
-    "9:16 (TikTok/Reels)": "1024x1792",
+    "9:16 (TikTok/Reels/Shorts)": "1024x1792",
     "16:9 (YouTube/Landscape)": "1792x1024"
 }
 
-if st.button("GENERATE STORYBOARD 🚀"):
+if st.button("MULAI PRODUKSI KONTEN 🚀"):
     if topic:
         try:
-            # --- TAHAP 1: GENERATE STORYBOARD (NASKAH) ---
-            with st.spinner("🧠 Merancang adegan..."):
+            # --- TAHAP 1: GENERATE NASKAH PANJANG ---
+            with st.spinner("✍️ Menyusun narasi mendalam (2 paragraf per adegan)..."):
                 prompt_script = f"""
-                Buatlah storyboard video pendek tentang {topic} sebanyak {num_scenes} adegan.
-                Format harus JSON murni tanpa teks lain:
+                Buatlah storyboard video untuk topik: {topic}.
+                Buatlah {num_scenes} adegan.
+                Setiap adegan WAJIB memiliki narasi minimal 2 paragraf panjang (sekitar 80-100 kata per adegan).
+                
+                Format JSON:
                 {{
                   "scenes": [
                     {{
-                      "narration": "teks yang dibaca narator",
-                      "visual_desc": "deskripsi visual untuk gambar"
+                      "narration": "Paragraf 1... Paragraf 2...",
+                      "visual_prompt": "Deskripsi visual detail"
                     }}
                   ]
                 }}
-                PERATURAN: Narasi hanya berisi kalimat yang dibaca (Tanpa label Hook/CTA).
+                PERATURAN: Narasi harus bersih tanpa label teknis. Bahasa Indonesia formal-estetik.
                 """
                 
-                # Menggunakan GPT untuk struktur JSON
                 response = client.chat.completions.create(
-                    model="gpt-3.5-turbo-0125",
+                    model="gpt-4o", # Menggunakan GPT-4o untuk hasil naskah lebih cerdas
                     messages=[{"role": "user", "content": prompt_script}],
                     response_format={ "type": "json_object" }
                 )
                 storyboard = json.loads(response.choices[0].message.content)
 
-            # --- TAHAP 2: PROSES PER ADEGAN ---
-            st.divider()
+            # --- TAHAP 2: DISPLAY & GENERATE ---
             for i, scene in enumerate(storyboard['scenes']):
-                st.markdown(f"### 🎬 Adegan {i+1}")
-                col1, col2 = st.columns([1, 2])
+                st.markdown(f"## 🎞️ ADEGAN {i+1}")
                 
-                with col1:
-                    # Generate Gambar
-                    with st.spinner(f"🎨 Membuat Gambar {i+1}..."):
+                # Layout Kolom Berdasarkan Rasio
+                if "9:16" in ratio:
+                    col_img, col_txt = st.columns([1, 1.5]) # Gambar vertikal butuh ruang lebih sempit
+                else:
+                    col_img, col_txt = st.columns([1.5, 1]) # Gambar horizontal butuh ruang lebih lebar
+
+                with col_img:
+                    with st.spinner(f"🎨 Generating Visual {i+1}..."):
                         img_res = client.images.generate(
                             model="dall-e-3",
-                            prompt=f"Cinematic, {scene['visual_desc']}, highly detailed, no text",
+                            prompt=f"Cinematic realistic, {scene['visual_prompt']}, masterpiece, 8k, lighting dramatic, no text",
                             size=size_map[ratio],
-                            quality="standard"
+                            quality="hd"
                         )
-                        st.image(img_res.data[0].url, use_column_width=True)
+                        st.image(img_res.data[0].url)
+
+                with col_txt:
+                    st.markdown(f'<div class="narration-text">{scene["narration"]}</div>', unsafe_allow_html=True)
+                    
+                    # Generate Suara
+                    voice_file = f"audio_scene_{i}.mp3"
+                    v_rate = f"{'+' if voice_speed >= 1 else '-'}{int(abs(voice_speed-1)*100)}%"
+                    communicate = edge_tts.Communicate(scene["narration"], "id-ID-ArdiNeural", rate=v_rate)
+                    asyncio.run(communicate.save(voice_file))
+                    
+                    st.audio(voice_file)
+                    st.download_button(f"📥 Simpan Audio {i+1}", open(voice_file, "rb"), voice_file)
                 
-                with col2:
-                    # Tampilkan Narasi
-                    st.markdown(f'<div class="scene-card">{scene["narration"]}</div>', unsafe_allow_html=True)
-                    
-                    # Generate Audio per Adegan
-                    voice_name = "voice_scene_" + str(i) + ".mp3"
-                    communicate = edge_tts.Communicate(scene["narration"], "id-ID-ArdiNeural")
-                    asyncio.run(communicate.save(voice_name))
-                    
-                    with open(voice_name, "rb") as f:
-                        st.audio(f.read(), format="audio/mp3")
-                    
-                    st.download_button(f"📥 Download Audio {i+1}", open(voice_name, "rb"), voice_name)
+                st.divider()
 
             st.balloons()
-            st.success("✅ Storyboard Selesai! Silakan download aset per adegan untuk disatukan di CapCut.")
+            st.success("✅ Semua aset telah siap! Silakan gabungkan di aplikasi editor favorit Anda.")
 
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Terjadi Kendala: {e}")
     else:
-        st.warning("Isi topiknya dulu!")
+        st.warning("Mohon isi topiknya terlebih dahulu.")
