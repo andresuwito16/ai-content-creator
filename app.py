@@ -2,96 +2,101 @@ import streamlit as st
 from openai import OpenAI
 import asyncio
 import edge_tts
-import os
+import json
 
-# 1. SETUP API & CONFIG
+# 1. SETUP API
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_page_config(page_title="AI Studio: Video Pro", layout="wide")
+st.set_page_config(page_title="AI Storyboard Studio", layout="wide")
 
-# CSS Styling untuk tampilan premium
+# Styling
 st.markdown("""
     <style>
-    .stApp { background: #0f1116; color: white; }
-    .stButton>button { background: linear-gradient(45deg, #ff4b4b, #ff8181); color: white; border: none; font-weight: bold; border-radius: 10px; }
-    .script-box { background: #1e2128; padding: 20px; border-radius: 15px; border-left: 5px solid #ff4b4b; }
+    .scene-card { background: #1e2128; padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid #00ffcc; }
+    .stButton>button { width: 100%; background: #00ffcc; color: black; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("💎 AI Video Studio: Ultra Edition")
-st.write("Ubah ide sederhana menjadi aset video berkelas dalam hitungan detik.")
+st.title("🎬 AI Storyboard Creator")
+st.write("Hasil per adegan untuk mempermudah editing manual di CapCut/Premiere.")
 
-# 2. SIDEBAR UNTUK SETTING PRO
+# 2. INPUT & SETTING
 with st.sidebar:
-    st.header("🎨 Pengaturan Video")
-    tone = st.selectbox("Pilih Nada Video", ["Inspiratif & Semangat", "Sedih & Emosional", "Misterius & Dark", "Edukasi Santai"])
-    target = st.selectbox("Target Audiens", ["Umum", "Gen Z (Viral)", "Profesional/Bisnis"])
-    model_ai = st.selectbox("Kualitas Gambar", ["Standard", "HD Sinematik"])
+    st.header("⚙️ Konfigurasi")
+    ratio = st.radio("Rasio Gambar:", ["9:16 (TikTok/Reels)", "16:9 (YouTube/Landscape)"])
+    num_scenes = st.slider("Jumlah Adegan:", 3, 5, 3)
+    tone = st.selectbox("Tone Suara:", ["Inspiratif", "Misterius", "Enerjik"])
 
-# 3. AREA INPUT
-topic = st.text_area("Apa ide besar konten Anda?", placeholder="Contoh: Rahasia orang sukses yang tidak pernah dibagikan di sekolah...", height=100)
+topic = st.text_area("Apa ide konten Anda?", placeholder="Contoh: 3 Fakta unik tentang laut terdalam", height=100)
 
-if st.button("GENERATE KONTEN PREMIUM 🚀"):
+# Mapping Rasio untuk DALL-E
+size_map = {
+    "9:16 (TikTok/Reels)": "1024x1792",
+    "16:9 (YouTube/Landscape)": "1792x1024"
+}
+
+if st.button("GENERATE STORYBOARD 🚀"):
     if topic:
         try:
-            # --- TAHAP 1: GENERATE NASKAH BERSIH (THE CORE) ---
-            with st.spinner("🧠 AI sedang menyusun narasi viral..."):
-                prompt_naskah = f"""
-                Tulis naskah narasi video pendek tentang {topic}.
-                Target Audiens: {target}.
-                Nada Bicara: {tone}.
-                
-                PERATURAN KETAT:
-                1. Tuliskan LANGSUNG kalimat yang harus dibaca narator.
-                2. JANGAN pakai label 'Hook', 'CTA', 'Scene', atau tanda kurung.
-                3. JANGAN pakai angka list.
-                4. Bahasa Indonesia yang natural dan tidak kaku.
-                5. Berikan alur yang emosional dan bikin orang penasaran.
-                Maksimal 60 kata.
+            # --- TAHAP 1: GENERATE STORYBOARD (NASKAH) ---
+            with st.spinner("🧠 Merancang adegan..."):
+                prompt_script = f"""
+                Buatlah storyboard video pendek tentang {topic} sebanyak {num_scenes} adegan.
+                Format harus JSON murni tanpa teks lain:
+                {{
+                  "scenes": [
+                    {{
+                      "narration": "teks yang dibaca narator",
+                      "visual_desc": "deskripsi visual untuk gambar"
+                    }}
+                  ]
+                }}
+                PERATURAN: Narasi hanya berisi kalimat yang dibaca (Tanpa label Hook/CTA).
                 """
-                res = client.chat.completions.create(
-                    model="gpt-3.5-turbo", 
-                    messages=[{"role": "user", "content": prompt_naskah}]
-                )
-                naskah = res.choices[0].message.content
-
-            # --- TAHAP 2: GENERATE VISUAL (DALL-E 3) ---
-            with st.spinner("📸 Memotret visual estetik..."):
-                visual_prompt = f"Professional cinematography, {topic}, {tone} atmosphere, highly detailed, 4k, realistic lighting, no text."
-                img_res = client.images.generate(
-                    model="dall-e-3",
-                    prompt=visual_prompt,
-                    size="1024x1024",
-                    quality="hd" if model_ai == "HD Sinematik" else "standard"
-                )
-                img_url = img_res.data[0].url
-
-            # --- TAHAP 3: GENERATE SUARA (NADA SESUAI PILIHAN) ---
-            with st.spinner("🎙️ Mengisi suara narator..."):
-                voice_file = "final_voice.mp3"
-                # Mengatur kecepatan berdasarkan nada
-                speed = "+10%" if tone == "Inspiratif & Semangat" else "-5%"
-                communicate = edge_tts.Communicate(naskah, "id-ID-ArdiNeural", rate=speed)
-                asyncio.run(communicate.save(voice_file))
-
-            # --- TAHAP 4: DISPLAY HASIL ---
-            st.divider()
-            col1, col2 = st.columns([1, 1.2])
-
-            with col1:
-                st.image(img_url, caption="Visual Asset Generasi AI", use_column_width=True)
-                with open(voice_file, "rb") as f:
-                    st.audio(f.read(), format="audio/mp3")
-                st.download_button("📥 Download Suara", open(voice_file, "rb"), "narasi_ai.mp3")
-
-            with col2:
-                st.markdown("### 📝 Naskah Narasi")
-                st.markdown(f'<div class="script-box">{naskah}</div>', unsafe_allow_html=True)
                 
-                st.success("✅ Aset Video Selesai Dibuat!")
-                st.info("💡 **Tips Editor:** Masukkan gambar ke aplikasi editing (seperti CapCut), pasang audio ini, dan nyalakan fitur 'Auto Captions' untuk hasil yang sempurna.")
+                # Menggunakan GPT untuk struktur JSON
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo-0125",
+                    messages=[{"role": "user", "content": prompt_script}],
+                    response_format={ "type": "json_object" }
+                )
+                storyboard = json.loads(response.choices[0].message.content)
+
+            # --- TAHAP 2: PROSES PER ADEGAN ---
+            st.divider()
+            for i, scene in enumerate(storyboard['scenes']):
+                st.markdown(f"### 🎬 Adegan {i+1}")
+                col1, col2 = st.columns([1, 2])
+                
+                with col1:
+                    # Generate Gambar
+                    with st.spinner(f"🎨 Membuat Gambar {i+1}..."):
+                        img_res = client.images.generate(
+                            model="dall-e-3",
+                            prompt=f"Cinematic, {scene['visual_desc']}, highly detailed, no text",
+                            size=size_map[ratio],
+                            quality="standard"
+                        )
+                        st.image(img_res.data[0].url, use_column_width=True)
+                
+                with col2:
+                    # Tampilkan Narasi
+                    st.markdown(f'<div class="scene-card">{scene["narration"]}</div>', unsafe_allow_html=True)
+                    
+                    # Generate Audio per Adegan
+                    voice_name = "voice_scene_" + str(i) + ".mp3"
+                    communicate = edge_tts.Communicate(scene["narration"], "id-ID-ArdiNeural")
+                    asyncio.run(communicate.save(voice_name))
+                    
+                    with open(voice_name, "rb") as f:
+                        st.audio(f.read(), format="audio/mp3")
+                    
+                    st.download_button(f"📥 Download Audio {i+1}", open(voice_name, "rb"), voice_name)
+
+            st.balloons()
+            st.success("✅ Storyboard Selesai! Silakan download aset per adegan untuk disatukan di CapCut.")
 
         except Exception as e:
-            st.error(f"Terjadi kesalahan: {e}")
+            st.error(f"Error: {e}")
     else:
-        st.warning("Silakan tulis ide topiknya dulu ya!")
+        st.warning("Isi topiknya dulu!")
